@@ -84,13 +84,13 @@ async def process_pdf_background(pdf_id: str, file_path: str, total_pages: int):
                         db, pdf_id, page_number, max_pages=3
                     )
                     
-                    # 调用 LLM 生成解释
+                    # 调用 LLM 生成解释 - 增加 max_tokens 到 4000
                     markdown_content = await llm_service.analyze_image(
                         image=page_image,
                         page_num=page_number,
                         previous_summaries=previous_summaries,
                         temperature=0.7,
-                        max_tokens=2000,
+                        max_tokens=4000,
                     )
                     
                     # 提取摘要

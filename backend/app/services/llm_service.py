@@ -83,7 +83,7 @@ class GeminiService:
         page_num: int,
         previous_summaries: Optional[List[str]] = None,
         temperature: float = 0.7,
-        max_tokens: int = 2000,
+        max_tokens: int = 50000,
     ) -> str:
         """分析图像并生成Markdown格式解释"""
         
@@ -95,50 +95,87 @@ class GeminiService:
             context_str = self.build_context_string(previous_summaries)
             prompt += context_str
 
-        # 生成配置
+        # 生成配置 - 增加 max_output_tokens
         config = genai.GenerationConfig(
             temperature=temperature,
             max_output_tokens=max_tokens,
         )
 
-        try:
-            response = self.model.generate_content(
-                [prompt, image],
-                generation_config=config,
-                safety_settings=SAFETY_SETTINGS,
-            )
-
-            # 强制提取内容（忽略安全过滤）
-            if not response.candidates:
-                print("⚠️ 无候选响应")
-                return "无法生成解释"
-
-            candidate = response.candidates[0]
-
-            # 记录但忽略安全标记
-            if candidate.finish_reason == 2:
-                print(f"⚠️ SAFETY 标记（已忽略）")
-            elif candidate.finish_reason == 3:
-                print(f"⚠️ RECITATION 标记（已忽略）")
-
-            # 提取文本
+        # 重试机制
+        max_retries = 3
+        for attempt in range(max_retries):
             try:
-                if hasattr(response, "text") and response.text:
-                    return response.text
-            except:
-                pass
+                response = self.model.generate_content(
+                    [prompt, image],
+                    generation_config=config,
+                    safety_settings=SAFETY_SETTINGS,
+                )
 
-            # 从 candidate 提取
-            if candidate.content and candidate.content.parts:
-                texts = [p.text for p in candidate.content.parts if hasattr(p, "text") and p.text]
-                if texts:
-                    return "\n".join(texts)
+                # 检查是否有候选响应
+                if not response.candidates:
+                    print(f"⚠️ 第 {page_num} 页：无候选响应，重试 {attempt + 1}/{max_retries}")
+                    if attempt < max_retries - 1:
+                        continue
+                    return f"## 第 {page_num} 页\n\n⚠️ 无法生成内容，请稍后重试。"
 
-            return "无法提取内容"
+                candidate = response.candidates[0]
 
-        except Exception as e:
-            print(f"⚠️ Gemini API 错误: {str(e)}")
-            return f"生成失败: {str(e)[:200]}"
+                # 记录安全标记
+                if candidate.finish_reason == 2:
+                    print(f"⚠️ 第 {page_num} 页：SAFETY 标记")
+                elif candidate.finish_reason == 3:
+                    print(f"⚠️ 第 {page_num} 页：RECITATION 标记")
+
+                # 尝试多种方式提取文本
+                extracted_text = None
+                
+                # 方式1: 直接从 response.text 获取
+                try:
+                    if hasattr(response, "text") and response.text:
+                        extracted_text = response.text
+                except ValueError as e:
+                    # response.text 可能因为安全原因抛出异常
+                    print(f"⚠️ 第 {page_num} 页：response.text 异常: {str(e)[:100]}")
+
+                # 方式2: 从 candidate.content.parts 提取
+                if not extracted_text and candidate.content and candidate.content.parts:
+                    texts = []
+                    for part in candidate.content.parts:
+                        if hasattr(part, "text") and part.text:
+                            texts.append(part.text)
+                    if texts:
+                        extracted_text = "\n".join(texts)
+
+                # 方式3: 尝试从 candidate 的其他属性提取
+                if not extracted_text:
+                    try:
+                        if hasattr(candidate, 'text') and candidate.text:
+                            extracted_text = candidate.text
+                    except:
+                        pass
+
+                if extracted_text and len(extracted_text.strip()) > 50:
+                    return extracted_text
+                elif extracted_text:
+                    print(f"⚠️ 第 {page_num} 页：内容过短 ({len(extracted_text)} 字符)，重试")
+                    if attempt < max_retries - 1:
+                        continue
+                    return extracted_text if extracted_text else f"## 第 {page_num} 页\n\n⚠️ 内容生成不完整。"
+                else:
+                    print(f"⚠️ 第 {page_num} 页：无法提取内容，重试 {attempt + 1}/{max_retries}")
+                    if attempt < max_retries - 1:
+                        continue
+                    return f"## 第 {page_num} 页\n\n⚠️ 无法提取内容，可能是安全过滤导致。"
+
+            except Exception as e:
+                print(f"⚠️ 第 {page_num} 页：Gemini API 错误: {str(e)}")
+                if attempt < max_retries - 1:
+                    import asyncio
+                    await asyncio.sleep(2)  # 等待2秒后重试
+                    continue
+                return f"## 第 {page_num} 页\n\n⚠️ 生成失败: {str(e)[:200]}"
+        
+        return f"## 第 {page_num} 页\n\n⚠️ 多次尝试后仍无法生成内容。"
 
 
 # 全局单例
