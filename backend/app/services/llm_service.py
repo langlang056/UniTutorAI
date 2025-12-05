@@ -83,7 +83,7 @@ class GeminiService:
         page_num: int,
         previous_summaries: Optional[List[str]] = None,
         temperature: float = 0.7,
-        max_tokens: int = 50000,
+        max_tokens: int = 8192,
     ) -> str:
         """分析图像并生成Markdown格式解释"""
         

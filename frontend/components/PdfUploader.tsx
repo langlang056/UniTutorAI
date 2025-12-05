@@ -13,6 +13,7 @@ export default function PdfUploader() {
     setIsUploading,
     setError,
     pdfId,
+    reset,
   } = usePdfStore();
 
   const handleFileSelect = async (
@@ -34,6 +35,9 @@ export default function PdfUploader() {
       return;
     }
 
+    // 重新上传时，先重置所有状态（清除旧的解释缓存等）
+    reset();
+    
     setPdfFile(file);
     setError(null);
     setIsUploading(true);
@@ -53,6 +57,10 @@ export default function PdfUploader() {
   };
 
   const handleButtonClick = () => {
+    // 清除 input 的值，确保选择相同文件也能触发 onChange
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
     fileInputRef.current?.click();
   };
 

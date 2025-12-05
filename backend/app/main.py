@@ -60,42 +60,47 @@ async def process_pdf_background(pdf_id: str, file_path: str, total_pages: int):
     """后台任务：按顺序处理所有页面"""
     print(f"🚀 开始后台处理 PDF: {pdf_id}, 共 {total_pages} 页")
     
-    async with AsyncSessionLocal() as db:
-        try:
+    try:
+        async with AsyncSessionLocal() as db:
             # 更新状态为处理中
             await cache_service.update_processing_status(db, pdf_id, "processing", 0)
+        
+        for page_number in range(1, total_pages + 1):
+            print(f"📄 处理第 {page_number}/{total_pages} 页...")
             
-            for page_number in range(1, total_pages + 1):
-                print(f"📄 处理第 {page_number}/{total_pages} 页...")
-                
-                try:
+            try:
+                async with AsyncSessionLocal() as db:
                     # 检查是否已有缓存
                     cached = await cache_service.get_cached_markdown_explanation(db, pdf_id, page_number)
                     if cached:
                         print(f"✅ 第 {page_number} 页已有缓存，跳过")
                         await cache_service.update_processing_status(db, pdf_id, "processing", page_number)
                         continue
-                    
-                    # 提取页面图像
-                    page_image = await pdf_parser.parse_single_page(file_path, page_number)
-                    
+                
+                # 提取页面图像
+                print(f"  📸 提取页面图像...")
+                page_image = await pdf_parser.parse_single_page(file_path, page_number)
+                
+                async with AsyncSessionLocal() as db:
                     # 获取前面页面的摘要作为上下文
                     previous_summaries = await cache_service.get_previous_summaries(
                         db, pdf_id, page_number, max_pages=3
                     )
-                    
-                    # 调用 LLM 生成解释 - 增加 max_tokens 到 4000
-                    markdown_content = await llm_service.analyze_image(
-                        image=page_image,
-                        page_num=page_number,
-                        previous_summaries=previous_summaries,
-                        temperature=0.7,
-                        max_tokens=4000,
-                    )
-                    
-                    # 提取摘要
-                    summary = llm_service.extract_summary(markdown_content, page_number)
-                    
+                
+                # 调用 LLM 生成解释
+                print(f"  🤖 调用 LLM 分析...")
+                markdown_content = await llm_service.analyze_image(
+                    image=page_image,
+                    page_num=page_number,
+                    previous_summaries=previous_summaries,
+                    temperature=0.7,
+                    max_tokens=4000,
+                )
+                
+                # 提取摘要
+                summary = llm_service.extract_summary(markdown_content, page_number)
+                
+                async with AsyncSessionLocal() as db:
                     # 保存到缓存
                     await cache_service.save_markdown_explanation(
                         db, pdf_id, page_number, markdown_content, summary
@@ -103,30 +108,41 @@ async def process_pdf_background(pdf_id: str, file_path: str, total_pages: int):
                     
                     # 更新进度
                     await cache_service.update_processing_status(db, pdf_id, "processing", page_number)
-                    
-                    print(f"✅ 第 {page_number} 页处理完成")
-                    
-                except Exception as e:
-                    print(f"❌ 处理第 {page_number} 页失败: {str(e)}")
-                    # 继续处理下一页
-                    continue
-            
-            # 处理完成
+                
+                print(f"✅ 第 {page_number} 页处理完成")
+                
+                # 小延迟避免 API 限流
+                await asyncio.sleep(1)
+                
+            except Exception as e:
+                import traceback
+                print(f"❌ 处理第 {page_number} 页失败: {str(e)}")
+                print(f"  详细错误: {traceback.format_exc()}")
+                # 继续处理下一页
+                continue
+        
+        # 处理完成
+        async with AsyncSessionLocal() as db:
             await cache_service.update_processing_status(db, pdf_id, "completed", total_pages)
-            print(f"🎉 PDF {pdf_id} 全部处理完成")
-            
-        except Exception as e:
-            print(f"❌ 后台处理失败: {str(e)}")
-            await cache_service.update_processing_status(db, pdf_id, "failed", 0)
-        finally:
-            # 清理任务记录
-            if pdf_id in processing_tasks:
-                del processing_tasks[pdf_id]
+        print(f"🎉 PDF {pdf_id} 全部处理完成")
+        
+    except Exception as e:
+        import traceback
+        print(f"❌ 后台处理失败: {str(e)}")
+        print(f"  详细错误: {traceback.format_exc()}")
+        try:
+            async with AsyncSessionLocal() as db:
+                await cache_service.update_processing_status(db, pdf_id, "failed", 0)
+        except:
+            pass
+    finally:
+        # 清理任务记录
+        if pdf_id in processing_tasks:
+            del processing_tasks[pdf_id]
 
 
 @app.post("/api/upload", response_model=UploadResponse)
 async def upload_pdf(
-    background_tasks: BackgroundTasks,
     file: UploadFile = File(...), 
     db: AsyncSession = Depends(get_db)
 ):
@@ -176,11 +192,12 @@ async def upload_pdf(
             db, pdf_id, file.filename, total_pages, str(final_path)
         )
 
-        # 启动后台处理任务
-        background_tasks.add_task(
-            process_pdf_background, pdf_id, str(final_path), total_pages
+        # 启动后台处理任务 - 使用 asyncio.create_task 而不是 BackgroundTasks
+        # BackgroundTasks 对于长时间运行的异步任务可能有问题
+        task = asyncio.create_task(
+            process_pdf_background(pdf_id, str(final_path), total_pages)
         )
-        processing_tasks[pdf_id] = True
+        processing_tasks[pdf_id] = task
 
         return UploadResponse(
             pdf_id=pdf_id, 

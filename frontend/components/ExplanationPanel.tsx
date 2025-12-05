@@ -13,6 +13,9 @@ const isTemporaryContent = (content: string) => {
          content.includes('⏳');
 };
 
+// 预加载的页数
+const PRELOAD_PAGES = 5;
+
 export default function ExplanationPanel() {
   const {
     pdfId,
@@ -33,6 +36,51 @@ export default function ExplanationPanel() {
 
   // 用于跟踪当前页面的轮询
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  // 用于跟踪预加载状态，避免重复请求
+  const preloadingRef = useRef<Set<number>>(new Set());
+
+  // 预加载函数 - 静默加载后续页面
+  const preloadPages = useCallback(async (startPage: number) => {
+    if (!pdfId) return;
+
+    for (let i = 1; i <= PRELOAD_PAGES; i++) {
+      const pageToLoad = startPage + i;
+      
+      // 超出总页数则跳过
+      if (pageToLoad > totalPages) continue;
+      
+      // 已经在缓存中且不是临时内容，跳过
+      const cached = explanations.get(pageToLoad);
+      if (cached && !isTemporaryContent(cached.markdown_content)) continue;
+      
+      // 正在预加载中，跳过
+      if (preloadingRef.current.has(pageToLoad)) continue;
+      
+      // 正在加载中，跳过
+      if (loadingPages.has(pageToLoad)) continue;
+
+      // 标记为预加载中
+      preloadingRef.current.add(pageToLoad);
+
+      // 异步加载，不阻塞
+      getExplanation(pdfId, pageToLoad)
+        .then((explanation) => {
+          // 只有当内容不是临时的才缓存
+          if (!isTemporaryContent(explanation.markdown_content)) {
+            setExplanation(pageToLoad, explanation);
+          }
+        })
+        .catch((error) => {
+          console.log(`预加载第 ${pageToLoad} 页失败:`, error.message);
+        })
+        .finally(() => {
+          preloadingRef.current.delete(pageToLoad);
+        });
+
+      // 每个请求间隔 100ms，避免同时发送太多请求
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+  }, [pdfId, totalPages, explanations, loadingPages, setExplanation]);
 
   // 轮询处理进度
   useEffect(() => {
@@ -73,9 +121,11 @@ export default function ExplanationPanel() {
         return;
       }
 
-      // 检查缓存 - 如果有缓存且不是临时内容，直接返回
+      // 检查缓存 - 如果有缓存且不是临时内容，触发预加载并返回
       const cached = explanations.get(currentPage);
       if (cached && !isTemporaryContent(cached.markdown_content)) {
+        // 缓存命中，预加载后续页面
+        preloadPages(currentPage);
         return;
       }
 
@@ -93,17 +143,22 @@ export default function ExplanationPanel() {
               const newExplanation = await getExplanation(pdfId, currentPage);
               setExplanation(currentPage, newExplanation);
               
-              // 如果不再是临时内容，停止轮询
+              // 如果不再是临时内容，停止轮询并触发预加载
               if (!isTemporaryContent(newExplanation.markdown_content)) {
                 if (pollIntervalRef.current) {
                   clearInterval(pollIntervalRef.current);
                   pollIntervalRef.current = null;
                 }
+                // 当前页加载完成，预加载后续页面
+                preloadPages(currentPage);
               }
             } catch (error) {
               console.error('轮询解释失败:', error);
             }
           }, 2000); // 每 2 秒检查一次
+        } else {
+          // 当前页已经有内容，立即预加载后续页面
+          preloadPages(currentPage);
         }
       } catch (error: any) {
         console.error('加载解释失败:', error);
@@ -123,7 +178,7 @@ export default function ExplanationPanel() {
         pollIntervalRef.current = null;
       }
     };
-  }, [pdfId, currentPage]);
+  }, [pdfId, currentPage, preloadPages]);
 
   // 下载处理
   const handleDownload = useCallback(async () => {
