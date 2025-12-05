@@ -1,10 +1,17 @@
 'use client';
 
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { usePdfStore } from '@/store/pdfStore';
 import { getExplanation, getProgress, downloadMarkdown } from '@/lib/api';
+
+// 判断内容是否是临时的"正在生成中"内容
+const isTemporaryContent = (content: string) => {
+  return content.includes('正在生成中') || 
+         content.includes('正在后台处理') ||
+         content.includes('⏳');
+};
 
 export default function ExplanationPanel() {
   const {
@@ -23,6 +30,9 @@ export default function ExplanationPanel() {
     setPageLoading,
     setPageError,
   } = usePdfStore();
+
+  // 用于跟踪当前页面的轮询
+  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // 轮询处理进度
   useEffect(() => {
@@ -47,28 +57,54 @@ export default function ExplanationPanel() {
     return () => clearInterval(interval);
   }, [pdfId, processingStatus, setProgress]);
 
-  // 当页面切换时,加载解释
+  // 当页面切换时，加载解释
   useEffect(() => {
     if (!pdfId) return;
 
-    // 检查缓存
-    if (explanations.has(currentPage)) {
-      return;
+    // 清除之前的轮询
+    if (pollIntervalRef.current) {
+      clearInterval(pollIntervalRef.current);
+      pollIntervalRef.current = null;
     }
 
-    // 检查是否正在加载
-    if (loadingPages.has(currentPage)) {
-      return;
-    }
-
-    // 加载解释
     const loadExplanation = async () => {
+      // 检查是否正在加载
+      if (loadingPages.has(currentPage)) {
+        return;
+      }
+
+      // 检查缓存 - 如果有缓存且不是临时内容，直接返回
+      const cached = explanations.get(currentPage);
+      if (cached && !isTemporaryContent(cached.markdown_content)) {
+        return;
+      }
+
       setPageLoading(currentPage, true);
       setPageError(currentPage, null);
 
       try {
         const explanation = await getExplanation(pdfId, currentPage);
         setExplanation(currentPage, explanation);
+        
+        // 如果返回的是临时内容，启动轮询
+        if (isTemporaryContent(explanation.markdown_content)) {
+          pollIntervalRef.current = setInterval(async () => {
+            try {
+              const newExplanation = await getExplanation(pdfId, currentPage);
+              setExplanation(currentPage, newExplanation);
+              
+              // 如果不再是临时内容，停止轮询
+              if (!isTemporaryContent(newExplanation.markdown_content)) {
+                if (pollIntervalRef.current) {
+                  clearInterval(pollIntervalRef.current);
+                  pollIntervalRef.current = null;
+                }
+              }
+            } catch (error) {
+              console.error('轮询解释失败:', error);
+            }
+          }, 2000); // 每 2 秒检查一次
+        }
       } catch (error: any) {
         console.error('加载解释失败:', error);
         const errorMsg = error.response?.data?.detail || '加载解释失败';
@@ -79,7 +115,15 @@ export default function ExplanationPanel() {
     };
 
     loadExplanation();
-  }, [pdfId, currentPage, explanations, loadingPages, setExplanation, setPageLoading, setPageError]);
+
+    // 清理函数
+    return () => {
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+        pollIntervalRef.current = null;
+      }
+    };
+  }, [pdfId, currentPage]);
 
   // 下载处理
   const handleDownload = useCallback(async () => {
