@@ -182,27 +182,103 @@ async def get_explanation(
     try:
         page_text = await pdf_parser.parse_single_page(pdf_doc.file_path, page_number)
 
-        # TODO: Phase 2 - Process with LangGraph agents
-        # For now, return a simple response
+        # Use LLM to generate explanation
+        from app.services.llm_service import llm_service
         from app.models.schemas import PageContent, KeyPoint
+        import json
 
-        explanation = PageExplanation(
-            page_number=page_number,
-            page_type="CONTENT",
-            content=PageContent(
-                summary=f"第 {page_number} 页内容(待 AI 处理)",
-                key_points=[
-                    KeyPoint(
-                        concept="原始文本",
-                        explanation=page_text[:200] + "...",  # Preview
-                        is_important=False,
-                    )
-                ],
-                analogy="[将在 Phase 2 添加 LangGraph 处理]",
-                example="",
-            ),
-            original_language="mixed",
+        # Create prompt for LLM
+        system_message = """你是一个优秀的大学课程讲解助手。你的任务是将复杂的学术内容转化为通俗易懂的中文解释。
+
+请分析提供的课件页面内容,并按以下 JSON 格式返回:
+{
+  "page_type": "TITLE 或 CONTENT 或 END",
+  "summary": "页面内容的简洁中文摘要(2-3句话)",
+  "key_points": [
+    {
+      "concept": "核心概念名称",
+      "explanation": "用通俗语言解释这个概念",
+      "is_important": true 或 false
+    }
+  ],
+  "analogy": "用日常生活中的类比来解释核心内容",
+  "example": "一个具体的例子来说明概念",
+  "original_language": "en 或 fr 或 zh 或 mixed"
+}
+
+注意:
+1. 如果是标题页/封面,page_type 为 "TITLE"
+2. 如果是结束页/参考文献,page_type 为 "END"
+3. 类比要贴近生活,容易理解
+4. 关键概念要抓住最重要的 2-3 个"""
+
+        user_prompt = f"""请分析以下课件第 {page_number} 页的内容,并生成中文讲解:
+
+{page_text}
+
+请严格按照 JSON 格式返回结果。"""
+
+        # Generate explanation with LLM
+        llm_response = await llm_service.generate_text(
+            prompt=user_prompt,
+            system_message=system_message,
+            temperature=0.3,
         )
+
+        # Parse LLM response
+        try:
+            # Try to extract JSON from response
+            # LLM might wrap JSON in markdown code blocks
+            response_text = llm_response.strip()
+            if "```json" in response_text:
+                response_text = response_text.split("```json")[1].split("```")[0].strip()
+            elif "```" in response_text:
+                response_text = response_text.split("```")[1].split("```")[0].strip()
+
+            llm_data = json.loads(response_text)
+
+            # Build explanation from LLM response
+            key_points = [
+                KeyPoint(
+                    concept=kp.get("concept", ""),
+                    explanation=kp.get("explanation", ""),
+                    is_important=kp.get("is_important", False),
+                )
+                for kp in llm_data.get("key_points", [])
+            ]
+
+            explanation = PageExplanation(
+                page_number=page_number,
+                page_type=llm_data.get("page_type", "CONTENT"),
+                content=PageContent(
+                    summary=llm_data.get("summary", ""),
+                    key_points=key_points,
+                    analogy=llm_data.get("analogy", ""),
+                    example=llm_data.get("example", ""),
+                ),
+                original_language=llm_data.get("original_language", "mixed"),
+            )
+
+        except json.JSONDecodeError:
+            # Fallback: use raw LLM response
+            print(f"⚠️  Failed to parse LLM JSON, using fallback")
+            explanation = PageExplanation(
+                page_number=page_number,
+                page_type="CONTENT",
+                content=PageContent(
+                    summary=llm_response[:500],
+                    key_points=[
+                        KeyPoint(
+                            concept="AI 生成的解释",
+                            explanation=llm_response,
+                            is_important=True,
+                        )
+                    ],
+                    analogy="",
+                    example="",
+                ),
+                original_language="mixed",
+            )
 
         # Save to cache
         await cache_service.save_explanation(db, pdf_id, page_number, explanation)
