@@ -41,6 +41,9 @@ export default function ExplanationPanel() {
   const isLoadingRef = useRef(false);
   // 记录当前加载的页面，避免重复加载
   const currentLoadingPageRef = useRef<number | null>(null);
+  // 轮询次数计数器，防止无限轮询
+  const pollCountRef = useRef<number>(0);
+  const MAX_POLL_COUNT = 60; // 最多轮询60次（2分钟）
 
   // 轮询处理进度（仅在处理中时轮询）
   useEffect(() => {
@@ -104,14 +107,30 @@ export default function ExplanationPanel() {
         const explanation = await getExplanation(pdfId, currentPage);
         setExplanation(currentPage, explanation);
 
-        // 如果返回的是临时内容，启动轮询
-        if (isTemporaryContent(explanation.markdown_content)) {
+        // 如果返回的是临时内容，且当前页面在选中的处理列表中，启动轮询
+        const isPageInSelectedList = selectedPages.length === 0 || selectedPages.includes(currentPage);
+
+        if (isTemporaryContent(explanation.markdown_content) && isPageInSelectedList && processingStatus === 'processing') {
           // 确保之前的轮询已清除
           if (pollIntervalRef.current) {
             clearInterval(pollIntervalRef.current);
           }
 
+          // 重置轮询计数
+          pollCountRef.current = 0;
+
           pollIntervalRef.current = setInterval(async () => {
+            // 检查轮询次数限制
+            pollCountRef.current += 1;
+            if (pollCountRef.current > MAX_POLL_COUNT) {
+              console.log('轮询次数达到上限，停止轮询');
+              if (pollIntervalRef.current) {
+                clearInterval(pollIntervalRef.current);
+                pollIntervalRef.current = null;
+              }
+              return;
+            }
+
             try {
               const newExplanation = await getExplanation(pdfId, currentPage);
               setExplanation(currentPage, newExplanation);

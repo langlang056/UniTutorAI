@@ -108,48 +108,46 @@ export default function PageSelector() {
               value={pageInput}
               onChange={(e) => setPageInput(e.target.value)}
               placeholder={`输入页码 (例: 1,3,5-10)，留空表示全部 ${totalPages} 页`}
-              disabled={isProcessing || isCompleted}
+              disabled={isProcessing}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 disabled:bg-gray-100 disabled:text-gray-500 text-sm"
             />
           </div>
           <button
             onClick={handleApplyPages}
-            disabled={isProcessing || isCompleted}
+            disabled={isProcessing}
             className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors text-sm font-medium"
           >
             应用
           </button>
           <button
             onClick={handleSelectAll}
-            disabled={isProcessing || isCompleted}
+            disabled={isProcessing}
             className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors text-sm font-medium"
           >
             全选
           </button>
           <button
             onClick={handleClear}
-            disabled={isProcessing || isCompleted}
+            disabled={isProcessing}
             className="px-4 py-2 bg-gray-400 text-white rounded-md hover:bg-gray-500 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors text-sm font-medium"
           >
             清空
           </button>
           <button
             onClick={handleStartProcessing}
-            disabled={selectedPages.length === 0 || isStarting || isProcessing || isCompleted}
+            disabled={selectedPages.length === 0 || isStarting || isProcessing}
             className={`px-5 py-2 rounded-md text-sm font-semibold transition-all shadow-sm ${
-              isCompleted
-                ? 'bg-green-600 text-white cursor-default'
-                : selectedPages.length === 0 || isStarting || isProcessing
+              selectedPages.length === 0 || isStarting || isProcessing
                 ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                 : 'bg-gradient-to-r from-blue-600 to-blue-700 text-white hover:from-blue-700 hover:to-blue-800 hover:shadow-md'
             }`}
           >
-            {isCompleted
-              ? '✅ 已完成'
-              : isStarting
+            {isStarting
               ? '启动中...'
               : isProcessing
               ? '分析中...'
+              : isCompleted
+              ? '继续分析'
               : '开始分析'}
           </button>
         </div>
