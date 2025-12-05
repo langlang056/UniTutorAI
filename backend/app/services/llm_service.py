@@ -54,10 +54,31 @@ class GeminiService:
                 full_prompt,
                 generation_config=generation_config,
             )
-            return response.text
+
+            # 检查响应是否被阻止
+            if not response.candidates:
+                return "此页面内容无法生成解释(可能包含敏感内容或格式问题)"
+
+            # 检查 finish_reason
+            candidate = response.candidates[0]
+            if candidate.finish_reason == 2:  # SAFETY
+                return "此页面内容因安全原因无法生成解释"
+            elif candidate.finish_reason == 3:  # RECITATION
+                return "此页面内容因版权原因无法生成解释"
+
+            # 尝试获取文本
+            try:
+                return response.text
+            except:
+                # 如果 response.text 失败,尝试直接访问内容
+                if candidate.content and candidate.content.parts:
+                    return candidate.content.parts[0].text
+                return "无法提取此页面的解释内容"
+
         except Exception as e:
             error_msg = str(e)
-            raise Exception(f"Gemini API 调用失败: {error_msg}")
+            print(f"⚠️ Gemini API 错误: {error_msg}")
+            return f"生成解释时出错: {error_msg[:200]}"
 
     def get_provider_info(self) -> dict:
         """获取提供商信息"""

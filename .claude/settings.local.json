@@ -2,7 +2,10 @@
   "permissions": {
     "allow": [
       "Bash(tree:*)",
-      "Bash(dir:*)"
+      "Bash(dir:*)",
+      "Bash(python:*)",
+      "Bash(if exist datacache.db del /F datacache.db)",
+      "Bash(del /F backenddatacache.db)"
     ],
     "deny": [],
     "ask": []

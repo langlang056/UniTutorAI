@@ -74,49 +74,80 @@ export default function ExplanationPanel() {
     );
   }
 
+  // 检查内容是否与摘要重复
+  const isContentDuplicate =
+    currentExplanation.content.key_points.length === 1 &&
+    currentExplanation.content.key_points[0].explanation ===
+      currentExplanation.content.summary;
+
   return (
     <div className="h-full overflow-auto p-6">
-      {/* 页面类型 */}
+      {/* 页面类型标签 */}
       <div className="mb-4">
-        <span className="px-2 py-1 text-xs border border-black">
-          {currentExplanation.page_type}
+        <span className="px-3 py-1 text-xs border border-black bg-white">
+          页面 {currentExplanation.page_number} · {currentExplanation.page_type}
         </span>
       </div>
 
       {/* 摘要 */}
-      <div className="mb-6">
-        <h3 className="text-lg font-bold mb-2">📝 摘要</h3>
-        <p className="text-gray-700 leading-relaxed">
-          {currentExplanation.content.summary}
-        </p>
-      </div>
-
-      {/* 关键点 */}
-      {currentExplanation.content.key_points.length > 0 && (
+      {currentExplanation.content.summary &&
+       currentExplanation.content.summary.trim() && (
         <div className="mb-6">
-          <h3 className="text-lg font-bold mb-3">🔑 关键概念</h3>
+          <h3 className="text-base font-bold mb-3 pb-2 border-b border-gray-200">
+            📝 摘要
+          </h3>
+          <div className="p-4 bg-gray-50 border-l-4 border-black">
+            <p className="text-sm text-gray-800 leading-relaxed whitespace-pre-wrap">
+              {currentExplanation.content.summary}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* 关键点 - 过滤重复内容 */}
+      {!isContentDuplicate && currentExplanation.content.key_points.length > 0 && (
+        <div className="mb-6">
+          <h3 className="text-base font-bold mb-3 pb-2 border-b border-gray-200">
+            🔑 关键概念
+          </h3>
           <div className="space-y-3">
-            {currentExplanation.content.key_points.map((point, index) => (
-              <div
-                key={index}
-                className={`p-3 border ${
-                  point.is_important ? 'border-black bg-gray-50' : 'border-gray-300'
-                }`}
-              >
-                <h4 className="font-semibold mb-1">{point.concept}</h4>
-                <p className="text-sm text-gray-700">{point.explanation}</p>
-              </div>
-            ))}
+            {currentExplanation.content.key_points
+              .filter(
+                (point) =>
+                  point.concept !== '原始文本' &&
+                  point.concept !== 'AI 生成的解释'
+              )
+              .map((point, index) => (
+                <div
+                  key={index}
+                  className={`p-4 border rounded-lg ${
+                    point.is_important
+                      ? 'border-black bg-white shadow-sm'
+                      : 'border-gray-200 bg-gray-50'
+                  }`}
+                >
+                  <h4 className="font-semibold mb-2 text-sm text-gray-900">
+                    {point.concept}
+                  </h4>
+                  <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">
+                    {point.explanation}
+                  </p>
+                </div>
+              ))}
           </div>
         </div>
       )}
 
       {/* 类比 */}
-      {currentExplanation.content.analogy && (
+      {currentExplanation.content.analogy &&
+       currentExplanation.content.analogy.trim() &&
+       !currentExplanation.content.analogy.includes('[将在 Phase') && (
         <div className="mb-6">
-          <h3 className="text-lg font-bold mb-2">💡 类比说明</h3>
-          <div className="p-3 bg-gray-50 border border-gray-300">
-            <p className="text-gray-700 italic">
+          <h3 className="text-base font-bold mb-3 pb-2 border-b border-gray-200">
+            💡 类比说明
+          </h3>
+          <div className="p-4 bg-blue-50 border-l-4 border-blue-500 rounded-r">
+            <p className="text-sm text-gray-800 italic leading-relaxed whitespace-pre-wrap">
               {currentExplanation.content.analogy}
             </p>
           </div>
@@ -124,18 +155,22 @@ export default function ExplanationPanel() {
       )}
 
       {/* 示例 */}
-      {currentExplanation.content.example && (
+      {currentExplanation.content.example &&
+       currentExplanation.content.example.trim() && (
         <div className="mb-6">
-          <h3 className="text-lg font-bold mb-2">📚 示例</h3>
-          <div className="p-3 border border-gray-300">
-            <p className="text-gray-700">{currentExplanation.content.example}</p>
+          <h3 className="text-base font-bold mb-3 pb-2 border-b border-gray-200">
+            📚 示例
+          </h3>
+          <div className="p-4 border border-gray-200 bg-white rounded-lg">
+            <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">
+              {currentExplanation.content.example}
+            </p>
           </div>
         </div>
       )}
 
       {/* 元信息 */}
-      <div className="mt-8 pt-4 border-t border-border text-xs text-gray-400">
-        <p>页面 {currentExplanation.page_number}</p>
+      <div className="mt-8 pt-4 border-t border-gray-200 text-xs text-gray-400 space-y-1">
         <p>原始语言: {currentExplanation.original_language}</p>
       </div>
     </div>

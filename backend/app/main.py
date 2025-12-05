@@ -173,12 +173,12 @@ async def get_explanation(
             detail=f"Invalid page number. Must be between 1 and {pdf_doc.total_pages}",
         )
 
-    # Check cache
-    cached = await cache_service.get_cached_explanation(db, pdf_id, page_number)
-    if cached:
-        return cached
+    # 禁用缓存 - 每次都重新生成
+    # cached = await cache_service.get_cached_explanation(db, pdf_id, page_number)
+    # if cached:
+    #     return cached
 
-    # Cache miss - Parse the page
+    # Parse the page
     try:
         page_text = await pdf_parser.parse_single_page(pdf_doc.file_path, page_number)
 
@@ -230,12 +230,37 @@ async def get_explanation(
             # Try to extract JSON from response
             # LLM might wrap JSON in markdown code blocks
             response_text = llm_response.strip()
-            if "```json" in response_text:
-                response_text = response_text.split("```json")[1].split("```")[0].strip()
-            elif "```" in response_text:
-                response_text = response_text.split("```")[1].split("```")[0].strip()
 
+            # Log raw response for debugging
+            print(f"🔍 Raw LLM response preview: {response_text[:200]}...")
+
+            # Remove markdown code blocks if present
+            if "```json" in response_text:
+                # Extract content between ```json and ```
+                parts = response_text.split("```json")
+                if len(parts) > 1:
+                    json_part = parts[1].split("```")[0].strip()
+                    response_text = json_part
+                    print(f"✅ Extracted JSON from ```json block")
+            elif "```" in response_text:
+                # Extract content between ``` and ```
+                parts = response_text.split("```")
+                if len(parts) >= 3:
+                    response_text = parts[1].strip()
+                    print(f"✅ Extracted JSON from ``` block")
+
+            # Try to find JSON object if response has extra text
+            if not response_text.startswith("{"):
+                # Find first { and last }
+                start_idx = response_text.find("{")
+                end_idx = response_text.rfind("}")
+                if start_idx != -1 and end_idx != -1:
+                    response_text = response_text[start_idx:end_idx+1]
+                    print(f"✅ Extracted JSON object from text")
+
+            print(f"📝 Parsing JSON (length: {len(response_text)})")
             llm_data = json.loads(response_text)
+            print(f"✅ Successfully parsed JSON response")
 
             # Build explanation from LLM response
             key_points = [
@@ -259,9 +284,10 @@ async def get_explanation(
                 original_language=llm_data.get("original_language", "mixed"),
             )
 
-        except json.JSONDecodeError:
+        except json.JSONDecodeError as e:
             # Fallback: use raw LLM response
-            print(f"⚠️  Failed to parse LLM JSON, using fallback")
+            print(f"❌ Failed to parse LLM JSON: {str(e)}")
+            print(f"❌ Response text that failed: {response_text[:500]}...")
             explanation = PageExplanation(
                 page_number=page_number,
                 page_type="CONTENT",
@@ -279,9 +305,12 @@ async def get_explanation(
                 ),
                 original_language="mixed",
             )
+        except Exception as e:
+            print(f"❌ Unexpected error parsing LLM response: {str(e)}")
+            raise
 
-        # Save to cache
-        await cache_service.save_explanation(db, pdf_id, page_number, explanation)
+        # 禁用缓存 - 不保存到数据库
+        # await cache_service.save_explanation(db, pdf_id, page_number, explanation)
 
         return explanation
 
