@@ -5,7 +5,8 @@
       "Bash(dir:*)",
       "Bash(python:*)",
       "Bash(if exist datacache.db del /F datacache.db)",
-      "Bash(del /F backenddatacache.db)"
+      "Bash(del /F backenddatacache.db)",
+      "Bash(findstr:*)"
     ],
     "deny": [],
     "ask": []
