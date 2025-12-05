@@ -97,6 +97,13 @@ export async function getProgress(pdfId: string): Promise<ProcessingProgress> {
 }
 
 /**
+ * 启动处理指定页码
+ */
+export async function startProcessing(pdfId: string, pageNumbers: number[]): Promise<void> {
+  await api.post(`/api/process/${pdfId}`, { page_numbers: pageNumbers });
+}
+
+/**
  * 获取 PDF 信息
  */
 export async function getPdfInfo(pdfId: string): Promise<PdfInfo> {

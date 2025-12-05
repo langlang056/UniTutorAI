@@ -23,7 +23,8 @@ export default function PdfViewer() {
     const updateWidth = () => {
       const container = document.getElementById('pdf-container');
       if (container) {
-        setPageWidth(container.clientWidth - 40);
+        // 使用容器宽度的 98%，最大化显示空间
+        setPageWidth(container.clientWidth * 0.98);
       }
     };
 
@@ -57,34 +58,34 @@ export default function PdfViewer() {
   }
 
   return (
-    <div className="flex flex-col h-full">
-      {/* 工具栏 */}
-      <div className="flex items-center justify-between p-4 border-b border-border">
+    <div className="flex flex-col h-full w-full">
+      {/* 工具栏 - 紧凑版 */}
+      <div className="flex items-center justify-between px-4 py-2 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white flex-shrink-0">
         <div className="flex items-center gap-2">
           <button
             onClick={goToPrevPage}
             disabled={currentPage <= 1}
-            className="px-3 py-1 border border-black disabled:border-gray-300 disabled:text-gray-300 hover:bg-gray-100 transition-colors"
+            className="px-3 py-1.5 text-sm border border-gray-300 disabled:border-gray-200 disabled:text-gray-400 hover:bg-gray-50 hover:border-gray-400 transition-all shadow-sm disabled:shadow-none font-medium rounded"
           >
             上一页
           </button>
-          <span className="text-sm">
+          <span className="text-sm font-semibold text-gray-700 min-w-[70px] text-center">
             {currentPage} / {totalPages}
           </span>
           <button
             onClick={goToNextPage}
             disabled={currentPage >= totalPages}
-            className="px-3 py-1 border border-black disabled:border-gray-300 disabled:text-gray-300 hover:bg-gray-100 transition-colors"
+            className="px-3 py-1.5 text-sm border border-gray-300 disabled:border-gray-200 disabled:text-gray-400 hover:bg-gray-50 hover:border-gray-400 transition-all shadow-sm disabled:shadow-none font-medium rounded"
           >
             下一页
           </button>
         </div>
       </div>
 
-      {/* PDF 显示区域 */}
+      {/* PDF 显示区域 - 最大化显示，垂直居中 */}
       <div
         id="pdf-container"
-        className="flex-1 overflow-auto p-4 bg-muted flex justify-center"
+        className="flex-1 overflow-auto p-1 bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center min-h-0"
       >
         <Document
           file={pdfFile}

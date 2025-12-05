@@ -46,6 +46,7 @@ export default function PdfUploader() {
       const response = await uploadPdf(file);
       setPdfInfo(response.pdf_id, response.total_pages, response.filename);
       console.log('✅ PDF 上传成功:', response);
+      // 上传后状态保持为 pending，等待用户选择页码后再开始处理
     } catch (error: any) {
       console.error('❌ 上传失败:', error);
       setError(
@@ -69,10 +70,10 @@ export default function PdfUploader() {
     return (
       <div className="flex items-center gap-3 text-sm">
         <div className="flex items-center gap-2">
-          <span className="text-gray-500">已加载</span>
+          <span className="text-gray-600 font-medium">已加载</span>
           <button
             onClick={handleButtonClick}
-            className="text-black underline hover:no-underline"
+            className="text-gray-800 font-semibold underline hover:text-gray-600 hover:no-underline transition-colors"
           >
             重新上传
           </button>
@@ -93,9 +94,9 @@ export default function PdfUploader() {
       <button
         onClick={handleButtonClick}
         disabled={isUploading}
-        className="px-6 py-3 bg-black text-white font-medium hover:bg-gray-800 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors border border-black"
+        className="px-6 py-3 bg-gradient-to-r from-gray-900 to-gray-700 text-white font-semibold hover:from-gray-800 hover:to-gray-600 disabled:from-gray-400 disabled:to-gray-400 disabled:cursor-not-allowed transition-all border border-gray-800 shadow-md hover:shadow-lg transform hover:-translate-y-0.5 disabled:transform-none rounded-lg"
       >
-        {isUploading ? '上传中...' : '选择 PDF 文件'}
+        {isUploading ? '⏳ 上传中...' : '📤 选择 PDF 文件'}
       </button>
       <input
         ref={fileInputRef}

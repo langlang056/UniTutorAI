@@ -21,6 +21,7 @@ class PDFDocument(Base):
     # 处理状态
     processing_status = Column(String, default="pending")  # pending, processing, completed, failed
     processed_pages = Column(Integer, default=0)  # 已处理的页数
+    selected_pages_count = Column(Integer, default=0)  # 选定要处理的页数（用于进度计算）
 
 
 class PageExplanationCache(Base):

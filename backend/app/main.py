@@ -56,17 +56,19 @@ async def root():
     return {"message": "PPT Helper API", "version": "0.4.0", "status": "running"}
 
 
-async def process_pdf_background(pdf_id: str, file_path: str, total_pages: int):
-    """后台任务：按顺序处理所有页面"""
-    print(f"🚀 开始后台处理 PDF: {pdf_id}, 共 {total_pages} 页")
+async def process_pdf_background(pdf_id: str, file_path: str, page_numbers: list[int]):
+    """后台任务：按顺序处理指定页面"""
+    total_pages_to_process = len(page_numbers)
+    print(f"🚀 开始后台处理 PDF: {pdf_id}, 处理 {total_pages_to_process} 页: {page_numbers}")
     
     try:
         async with AsyncSessionLocal() as db:
             # 更新状态为处理中
             await cache_service.update_processing_status(db, pdf_id, "processing", 0)
         
-        for page_number in range(1, total_pages + 1):
-            print(f"📄 处理第 {page_number}/{total_pages} 页...")
+        processed_count = 0
+        for page_number in page_numbers:
+            print(f"📄 处理第 {page_number} 页 ({processed_count + 1}/{total_pages_to_process})...")
             
             try:
                 async with AsyncSessionLocal() as db:
@@ -74,7 +76,8 @@ async def process_pdf_background(pdf_id: str, file_path: str, total_pages: int):
                     cached = await cache_service.get_cached_markdown_explanation(db, pdf_id, page_number)
                     if cached:
                         print(f"✅ 第 {page_number} 页已有缓存，跳过")
-                        await cache_service.update_processing_status(db, pdf_id, "processing", page_number)
+                        processed_count += 1
+                        await cache_service.update_processing_status(db, pdf_id, "processing", processed_count)
                         continue
                 
                 # 提取页面图像
@@ -107,7 +110,8 @@ async def process_pdf_background(pdf_id: str, file_path: str, total_pages: int):
                     )
                     
                     # 更新进度
-                    await cache_service.update_processing_status(db, pdf_id, "processing", page_number)
+                    processed_count += 1
+                    await cache_service.update_processing_status(db, pdf_id, "processing", processed_count)
                 
                 print(f"✅ 第 {page_number} 页处理完成")
                 
@@ -123,8 +127,8 @@ async def process_pdf_background(pdf_id: str, file_path: str, total_pages: int):
         
         # 处理完成
         async with AsyncSessionLocal() as db:
-            await cache_service.update_processing_status(db, pdf_id, "completed", total_pages)
-        print(f"🎉 PDF {pdf_id} 全部处理完成")
+            await cache_service.update_processing_status(db, pdf_id, "completed", processed_count)
+        print(f"🎉 PDF {pdf_id} 选定页面全部处理完成 ({processed_count}/{total_pages_to_process})")
         
     except Exception as e:
         import traceback
@@ -192,24 +196,74 @@ async def upload_pdf(
             db, pdf_id, file.filename, total_pages, str(final_path)
         )
 
-        # 启动后台处理任务 - 使用 asyncio.create_task 而不是 BackgroundTasks
-        # BackgroundTasks 对于长时间运行的异步任务可能有问题
-        task = asyncio.create_task(
-            process_pdf_background(pdf_id, str(final_path), total_pages)
-        )
-        processing_tasks[pdf_id] = task
-
+        # 不再自动启动后台处理，等待用户手动触发
         return UploadResponse(
             pdf_id=pdf_id, 
             total_pages=total_pages, 
             filename=file.filename,
-            message="PDF 已上传，正在后台处理中"
+            message="PDF 已上传，请选择页码后开始分析"
         )
 
     except Exception as e:
         if temp_path.exists():
             temp_path.unlink()
         raise HTTPException(500, f"上传失败: {str(e)}")
+
+
+@app.post("/api/process/{pdf_id}")
+async def start_processing(
+    pdf_id: str, 
+    request: dict,
+    db: AsyncSession = Depends(get_db)
+):
+    """启动处理指定页码"""
+    # 获取 PDF 元数据
+    pdf_doc = await cache_service.get_pdf_metadata(db, pdf_id)
+    if not pdf_doc:
+        raise HTTPException(404, "PDF 未找到")
+    
+    # 检查是否已经在处理中（且任务仍在运行）
+    if pdf_id in processing_tasks:
+        task = processing_tasks[pdf_id]
+        if not task.done():
+            raise HTTPException(400, "该 PDF 正在处理中")
+        else:
+            # 任务已完成，清理记录
+            del processing_tasks[pdf_id]
+    
+    # 获取要处理的页码列表
+    page_numbers = request.get("page_numbers", [])
+    if not page_numbers:
+        raise HTTPException(400, "请提供要处理的页码列表")
+    
+    # 验证页码
+    total_pages = pdf_doc.total_pages
+    invalid_pages = [p for p in page_numbers if p < 1 or p > total_pages]
+    if invalid_pages:
+        raise HTTPException(400, f"页码无效: {invalid_pages}，有效范围: 1-{total_pages}")
+    
+    # 更新选定页数
+    async with AsyncSessionLocal() as update_db:
+        from sqlalchemy import update
+        from app.models.database import PDFDocument
+        stmt = update(PDFDocument).where(PDFDocument.id == pdf_id).values(
+            selected_pages_count=len(page_numbers),
+            processed_pages=0,
+            processing_status="pending"
+        )
+        await update_db.execute(stmt)
+        await update_db.commit()
+    
+    # 启动后台处理任务
+    task = asyncio.create_task(
+        process_pdf_background(pdf_id, pdf_doc.file_path, page_numbers)
+    )
+    processing_tasks[pdf_id] = task
+    
+    return {
+        "message": f"已启动处理 {len(page_numbers)} 页",
+        "page_numbers": page_numbers
+    }
 
 
 @app.get("/api/progress/{pdf_id}", response_model=ProcessingProgress)
@@ -219,11 +273,13 @@ async def get_progress(pdf_id: str, db: AsyncSession = Depends(get_db)):
     if not pdf_doc:
         raise HTTPException(404, "PDF 未找到")
 
-    progress_percentage = (pdf_doc.processed_pages / pdf_doc.total_pages * 100) if pdf_doc.total_pages > 0 else 0
+    # 使用选定页数计算进度，如果没有选定则使用总页数
+    total_for_progress = pdf_doc.selected_pages_count if pdf_doc.selected_pages_count > 0 else pdf_doc.total_pages
+    progress_percentage = (pdf_doc.processed_pages / total_for_progress * 100) if total_for_progress > 0 else 0
 
     return ProcessingProgress(
         pdf_id=pdf_id,
-        total_pages=pdf_doc.total_pages,
+        total_pages=total_for_progress,  # 返回选定的页数
         processed_pages=pdf_doc.processed_pages,
         status=pdf_doc.processing_status or "pending",
         progress_percentage=round(progress_percentage, 1)

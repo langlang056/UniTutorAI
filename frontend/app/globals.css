@@ -11,13 +11,13 @@
   }
 }
 
-/* PDF.js 样式修复 */
+/* PDF.js 样式修复 - 添加阴影效果 */
 .react-pdf__Page {
-  @apply shadow-sm border border-border;
+  @apply shadow-lg border border-gray-200 rounded-sm;
 }
 
 .react-pdf__Page__canvas {
-  @apply max-w-full h-auto;
+  @apply max-w-full h-auto rounded-sm;
 }
 
 .react-pdf__Page__textContent {
@@ -28,22 +28,68 @@
   @apply hidden;
 }
 
-/* 简洁的滚动条样式 */
+/* 优化 Markdown 内容样式 */
+.prose {
+  @apply text-gray-800;
+}
+
+.prose h1 {
+  @apply text-2xl font-bold text-gray-900 mb-4 mt-6 pb-2 border-b-2 border-gray-200;
+}
+
+.prose h2 {
+  @apply text-xl font-semibold text-gray-900 mb-3 mt-5;
+}
+
+.prose h3 {
+  @apply text-lg font-semibold text-gray-800 mb-2 mt-4;
+}
+
+.prose p {
+  @apply text-base leading-relaxed mb-4 text-gray-700;
+}
+
+.prose ul, .prose ol {
+  @apply my-4 space-y-2;
+}
+
+.prose li {
+  @apply text-base leading-relaxed text-gray-700;
+}
+
+.prose strong {
+  @apply font-semibold text-gray-900;
+}
+
+.prose code {
+  @apply bg-gray-100 px-2 py-1 rounded text-sm font-mono text-gray-800 border border-gray-200;
+}
+
+.prose pre {
+  @apply bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto my-4 shadow-md;
+}
+
+.prose blockquote {
+  @apply border-l-4 border-gray-400 pl-4 italic text-gray-700 my-4 bg-gray-50 py-2;
+}
+
+/* 高级滚动条样式 */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
 }
 
 ::-webkit-scrollbar-track {
-  @apply bg-muted;
+  @apply bg-gray-100;
 }
 
 ::-webkit-scrollbar-thumb {
-  @apply bg-gray-400 rounded;
+  @apply bg-gray-400 rounded-full;
+  transition: background-color 0.2s;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  @apply bg-gray-500;
+  @apply bg-gray-600;
 }
 
 /* 加载动画 */

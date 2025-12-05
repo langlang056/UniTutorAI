@@ -43,6 +43,9 @@ interface PdfState {
   // 当前页面
   currentPage: number;
 
+  // 选中的页码（用于分析）
+  selectedPages: number[];
+
   // 解释缓存（改用 Markdown 格式）
   explanations: Map<number, PageExplanationMarkdown>;
 
@@ -63,6 +66,7 @@ interface PdfState {
   setPdfFile: (file: File) => void;
   setPdfInfo: (pdfId: string, totalPages: number, filename: string) => void;
   setCurrentPage: (page: number) => void;
+  setSelectedPages: (pages: number[]) => void;
   setExplanation: (page: number, explanation: PageExplanationMarkdown) => void;
   setProgress: (status: string, processedPages: number, progressPercentage: number) => void;
   setIsUploading: (isUploading: boolean) => void;
@@ -79,6 +83,7 @@ export const usePdfStore = create<PdfState>((set) => ({
   totalPages: 0,
   filename: '',
   currentPage: 1,
+  selectedPages: [],
   explanations: new Map(),
   processingStatus: 'pending',
   processedPages: 0,
@@ -95,6 +100,8 @@ export const usePdfStore = create<PdfState>((set) => ({
     set({ pdfId, totalPages, filename, currentPage: 1 }),
 
   setCurrentPage: (page) => set({ currentPage: page }),
+
+  setSelectedPages: (pages) => set({ selectedPages: pages }),
 
   setExplanation: (page, explanation) =>
     set((state) => {
@@ -139,6 +146,7 @@ export const usePdfStore = create<PdfState>((set) => ({
       totalPages: 0,
       filename: '',
       currentPage: 1,
+      selectedPages: [],
       explanations: new Map(),
       processingStatus: 'pending',
       processedPages: 0,

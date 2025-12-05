@@ -82,10 +82,10 @@ export default function ExplanationPanel() {
     }
   }, [pdfId, totalPages, explanations, loadingPages, setExplanation]);
 
-  // 轮询处理进度
+  // 轮询处理进度（仅在处理中时轮询）
   useEffect(() => {
     if (!pdfId) return;
-    if (processingStatus === 'completed') return;
+    if (processingStatus !== 'processing') return;
 
     const pollProgress = async () => {
       try {
@@ -209,26 +209,26 @@ export default function ExplanationPanel() {
   return (
     <div className="h-full flex flex-col">
       {/* 顶部工具栏：进度和下载 */}
-      <div className="p-4 border-b border-gray-200 bg-gray-50">
+      <div className="px-6 py-5 border-b border-gray-200 bg-gradient-to-r from-white to-gray-50 shadow-sm">
         {/* 进度条 */}
-        <div className="mb-3">
-          <div className="flex justify-between text-sm text-gray-600 mb-1">
+        <div className="mb-4">
+          <div className="flex justify-between text-sm font-medium text-gray-700 mb-2">
             <span>
               处理进度: {processedPages}/{totalPages} 页
               {processingStatus === 'processing' && ' (处理中...)'}
               {processingStatus === 'completed' && ' ✅'}
               {processingStatus === 'failed' && ' ❌'}
             </span>
-            <span>{progressPercentage}%</span>
+            <span className="font-semibold">{progressPercentage}%</span>
           </div>
-          <div className="w-full bg-gray-200 rounded-full h-2">
+          <div className="w-full bg-gray-200 rounded-full h-2.5 shadow-inner">
             <div
-              className={`h-2 rounded-full transition-all duration-300 ${
+              className={`h-2.5 rounded-full transition-all duration-300 shadow-sm ${
                 processingStatus === 'completed'
-                  ? 'bg-green-500'
+                  ? 'bg-gradient-to-r from-green-500 to-green-600'
                   : processingStatus === 'failed'
-                  ? 'bg-red-500'
-                  : 'bg-blue-500'
+                  ? 'bg-gradient-to-r from-red-500 to-red-600'
+                  : 'bg-gradient-to-r from-blue-500 to-blue-600'
               }`}
               style={{ width: `${progressPercentage}%` }}
             />
@@ -239,18 +239,18 @@ export default function ExplanationPanel() {
         <button
           onClick={handleDownload}
           disabled={processingStatus !== 'completed'}
-          className={`w-full py-2 px-4 rounded text-sm font-medium transition-colors ${
+          className={`w-full py-3 px-4 rounded-lg text-sm font-semibold transition-all shadow-md ${
             processingStatus === 'completed'
-              ? 'bg-black text-white hover:bg-gray-800'
-              : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+              ? 'bg-gradient-to-r from-gray-900 to-gray-700 text-white hover:from-gray-800 hover:to-gray-600 hover:shadow-lg transform hover:-translate-y-0.5'
+              : 'bg-gray-200 text-gray-400 cursor-not-allowed shadow-none'
           }`}
         >
           {processingStatus === 'completed' ? '📥 下载完整讲解文档' : '等待处理完成后下载...'}
         </button>
       </div>
 
-      {/* 内容区域 */}
-      <div className="flex-1 overflow-auto p-6">
+      {/* 内容区域 - 增大padding */}
+      <div className="flex-1 overflow-auto px-8 py-6">
         {isLoadingCurrentPage ? (
           <div className="flex items-center justify-center h-full">
             <div className="text-center">
@@ -266,10 +266,10 @@ export default function ExplanationPanel() {
             </div>
           </div>
         ) : currentExplanation ? (
-          <div className="prose prose-sm max-w-none">
+          <div className="prose prose-base max-w-none">
             {/* 页码标签 */}
-            <div className="mb-4">
-              <span className="px-3 py-1 text-xs border border-black bg-white">
+            <div className="mb-6">
+              <span className="px-4 py-2 text-sm font-semibold border-2 border-gray-800 bg-white shadow-md rounded-md">
                 第 {currentExplanation.page_number} 页
               </span>
             </div>

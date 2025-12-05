@@ -164,6 +164,7 @@ class CacheService:
                 file_path=file_path,
                 processing_status="pending",
                 processed_pages=0,
+                selected_pages_count=0,
             )
             await db.execute(stmt)
         else:
@@ -175,6 +176,7 @@ class CacheService:
                 file_path=file_path,
                 processing_status="pending",
                 processed_pages=0,
+                selected_pages_count=0,
             )
             db.add(pdf_doc)
         await db.commit()
