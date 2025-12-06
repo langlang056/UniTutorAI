@@ -207,6 +207,23 @@ server {
 
     client_max_body_size 50M;
 
+    # Next.js 静态资源
+    location /_next/static/ {
+        proxy_pass http://localhost:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Host \$host;
+        proxy_cache_bypass \$http_upgrade;
+        add_header Cache-Control "public, max-age=31536000, immutable";
+    }
+
+    # Next.js 图片优化
+    location /_next/image {
+        proxy_pass http://localhost:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Host \$host;
+    }
+
+    # 前端页面
     location / {
         proxy_pass http://localhost:3000;
         proxy_http_version 1.1;
@@ -250,6 +267,23 @@ server {
 
     client_max_body_size 50M;
 
+    # Next.js 静态资源
+    location /_next/static/ {
+        proxy_pass http://localhost:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Host \$host;
+        proxy_cache_bypass \$http_upgrade;
+        add_header Cache-Control "public, max-age=31536000, immutable";
+    }
+
+    # Next.js 图片优化
+    location /_next/image {
+        proxy_pass http://localhost:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Host \$host;
+    }
+
+    # 前端页面
     location / {
         proxy_pass http://localhost:3000;
         proxy_http_version 1.1;
