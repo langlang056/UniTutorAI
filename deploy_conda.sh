@@ -52,7 +52,25 @@ chown -R $ACTUAL_USER:$ACTUAL_USER "$INSTALL_PATH"
 # 3. 安装系统依赖
 echo -e "${YELLOW}[3/8] 安装系统依赖...${NC}"
 apt update
-apt install -y nodejs npm nginx git curl wget vim build-essential
+apt install -y nginx git curl wget vim build-essential
+
+# 检查 Node.js 版本
+CURRENT_NODE_VERSION=$(node -v 2>/dev/null | sed 's/v//' | cut -d. -f1)
+if [ -z "$CURRENT_NODE_VERSION" ] || [ "$CURRENT_NODE_VERSION" -lt 18 ]; then
+    echo -e "${YELLOW}当前 Node.js 版本过旧，安装 Node.js 18...${NC}"
+    
+    # 移除旧版本
+    apt remove -y nodejs npm
+    
+    # 安装 Node.js 18
+    curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
+    apt install -y nodejs
+    
+    echo -e "${GREEN}✓ Node.js 版本: $(node -v)${NC}"
+    echo -e "${GREEN}✓ npm 版本: $(npm -v)${NC}"
+else
+    echo -e "${GREEN}✓ Node.js 版本已满足要求: v${CURRENT_NODE_VERSION}${NC}"
+fi
 
 # 4. 配置后端
 echo -e "${YELLOW}[4/8] 配置后端...${NC}"
