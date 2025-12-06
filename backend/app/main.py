@@ -42,9 +42,17 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="PPT Helper API", version="0.4.0", lifespan=lifespan)
 
+# CORS 配置：支持开发环境和生产环境
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:3001"],
+    allow_origins=[
+        "http://localhost:3000",
+        "http://localhost:3001",
+        # 生产环境需要添加你的服务器地址，如:
+        # "http://192.168.1.100",
+        # "http://yourdomain.com",
+        "*"  # 开发时使用，生产环境建议指定具体域名
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
