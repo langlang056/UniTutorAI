@@ -98,9 +98,18 @@ export default function PageSelector() {
       console.log('✅ 开始处理选定页码:', selectedPages, '使用模型:', model);
     } catch (error: any) {
       console.error('❌ 启动处理失败:', error);
-      // 如果启动失败，重置状态
-      setProgress('pending', 0, 0);
-      setError(error.response?.data?.detail || '启动处理失败');
+      const errorMessage = error.response?.data?.detail || '启动处理失败';
+
+      // 如果是"正在处理中"的错误，不显示（因为用户可以从进度条看到状态）
+      // 只需保持当前的 processing 状态即可
+      if (errorMessage.includes('正在处理中')) {
+        console.log('ℹ️ PDF 正在处理中，保持当前状态');
+        // 不重置状态，不显示错误
+      } else {
+        // 其他错误才重置状态并显示
+        setProgress('pending', 0, 0);
+        setError(errorMessage);
+      }
     } finally {
       setIsStarting(false);
     }

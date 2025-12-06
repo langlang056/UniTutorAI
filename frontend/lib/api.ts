@@ -3,7 +3,7 @@ import axios from 'axios';
 // API Base URL 配置
 // 开发环境: 使用 http://localhost:8000
 // 生产环境: 使用服务器 IP (通过 NEXT_PUBLIC_API_URL 设置)，Nginx 会代理 /api 到后端
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000' || 'https://localhost:8000';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
