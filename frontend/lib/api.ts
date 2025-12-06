@@ -1,8 +1,8 @@
 import axios from 'axios';
 
-// 支持生产环境通过 Nginx 代理访问 API
-// 开发环境: NEXT_PUBLIC_API_URL 未设置，使用 http://localhost:8000
-// 生产环境: NEXT_PUBLIC_API_URL 设置为 http://your-ip/api 或使用默认 /api
+// API Base URL 配置
+// 开发环境: 使用 http://localhost:8000
+// 生产环境: 使用服务器 IP (通过 NEXT_PUBLIC_API_URL 设置)，Nginx 会代理 /api 到后端
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 const api = axios.create({
@@ -138,7 +138,7 @@ export async function downloadMarkdown(pdfId: string, filename: string): Promise
  */
 export async function healthCheck(): Promise<boolean> {
   try {
-    const response = await api.get('/');
+    const response = await api.get('/api');
     return response.status === 200;
   } catch {
     return false;
