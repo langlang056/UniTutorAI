@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     # API Keys (与老项目相同的命名)
     llama_cloud_api_key: str = ""  # 可选,如果为空则使用 PyPDF2
     google_api_key: str = ""  # Google Gemini API Key (与老项目相同)
-    google_model: str = "gemini-2.0-flash-exp"  # Gemini 模型
+    google_model: str = "gemini-2.5-flash"  # Gemini 模型 (改为稳定版本)
     
     # 默认 API Key (用于未配置用户,从环境变量读取,不暴露给前端)
     default_api_key: str = ""  # 默认的免费层级 API Key
