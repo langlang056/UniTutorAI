@@ -23,20 +23,29 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   }, [apiKey, model, isOpen]);
 
   if (!isOpen) return null;
+  
+  // Pro 模型是否被禁用 (没有提供 API Key 时禁用)
+  const isProDisabled = !localApiKey.trim();
 
   const handleSave = () => {
-    if (!localApiKey.trim()) {
-      setError('请输入 API Key');
+    const trimmedKey = localApiKey.trim();
+    
+    // 如果没有提供 Key,使用默认配置
+    if (!trimmedKey) {
+      setApiKey('');  // 存储空字符串,表示使用默认
+      setModel('gemini-2.5-flash');  // 强制使用 Flash
+      setError(null);
+      onClose();
       return;
     }
 
-    // 简单验证 API Key 格式
-    if (!localApiKey.startsWith('AI') && !localApiKey.startsWith('sk-')) {
+    // 有 Key,验证格式
+    if (!trimmedKey.startsWith('AI') && !trimmedKey.startsWith('sk-')) {
       setError('API Key 格式可能不正确，请检查');
       // 仍然允许保存，只是警告
     }
 
-    setApiKey(localApiKey.trim());
+    setApiKey(trimmedKey);
     setModel(localModel);
     setError(null);
     onClose();
@@ -72,7 +81,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
           {/* API Key 输入 */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Google API Key
+              Google API Key (可选)
             </label>
             <div className="relative">
               <input
@@ -82,7 +91,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   setLocalApiKey(e.target.value);
                   setError(null);
                 }}
-                placeholder="输入你的 Google API Key"
+                placeholder="可选，留空使用默认配置"
                 className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
               />
               <button
@@ -102,9 +111,14 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                 )}
               </button>
             </div>
-            <p className="mt-1 text-xs text-gray-500">
-              获取 API Key: <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">Google AI Studio</a>
-            </p>
+            <div className="mt-2 space-y-1">
+              <p className="text-xs text-gray-500">
+                💡 不填写将使用默认配置体验 (仅支持 Gemini 2.5 Flash)
+              </p>
+              <p className="text-xs text-gray-500">
+                获取 API Key: <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">Google AI Studio</a>
+              </p>
+            </div>
           </div>
 
           {/* 模型选择 */}
@@ -113,34 +127,44 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
               选择模型
             </label>
             <div className="space-y-2">
-              {AVAILABLE_MODELS.map((m) => (
-                <label
-                  key={m.id}
-                  className={`flex items-center p-3 border rounded-lg cursor-pointer transition-all ${
-                    localModel === m.id
-                      ? 'border-blue-500 bg-blue-50'
-                      : 'border-gray-200 hover:border-gray-300'
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="model"
-                    value={m.id}
-                    checked={localModel === m.id}
-                    onChange={() => setLocalModel(m.id)}
-                    className="sr-only"
-                  />
-                  <div className="flex-1">
-                    <div className="font-medium text-gray-800">{m.name}</div>
-                    <div className="text-xs text-gray-500">{m.description}</div>
-                  </div>
-                  {localModel === m.id && (
-                    <svg className="w-5 h-5 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                    </svg>
-                  )}
-                </label>
-              ))}
+              {AVAILABLE_MODELS.map((m) => {
+                const isProModel = m.id === 'gemini-2.5-pro';
+                const isDisabled = isProModel && isProDisabled;
+                
+                return (
+                  <label
+                    key={m.id}
+                    className={`flex items-center p-3 border rounded-lg transition-all ${
+                      isDisabled
+                        ? 'opacity-50 cursor-not-allowed bg-gray-50'
+                        : 'cursor-pointer hover:border-gray-300'
+                    } ${
+                      localModel === m.id && !isDisabled
+                        ? 'border-blue-500 bg-blue-50'
+                        : 'border-gray-200'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="model"
+                      value={m.id}
+                      checked={localModel === m.id}
+                      onChange={(e) => setLocalModel(e.target.value as ModelId)}
+                      disabled={isDisabled}
+                      className="mr-3"
+                    />
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-gray-900 text-sm">{m.name}</span>
+                        {isProModel && isProDisabled && (
+                          <span className="text-xs text-gray-500">🔒 需要提供 API Key</span>
+                        )}
+                      </div>
+                      <div className="text-xs text-gray-500">{m.description}</div>
+                    </div>
+                  </label>
+                );
+              })}
             </div>
           </div>
 

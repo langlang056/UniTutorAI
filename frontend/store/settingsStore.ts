@@ -14,7 +14,10 @@ interface SettingsState {
   apiKey: string;
   model: ModelId;
 
-  // 是否已配置
+  // 是否使用默认配置 (apiKey 为空)
+  isUsingDefault: boolean;
+  
+  // 是否已配置 (永远为 true,允许使用默认)
   isConfigured: boolean;
 
   // Actions
@@ -28,19 +31,27 @@ export const useSettingsStore = create<SettingsState>()(
     (set) => ({
       apiKey: '',
       model: 'gemini-2.5-flash',
-      isConfigured: false,
+      isUsingDefault: true,
+      isConfigured: true,  // 默认就是已配置(使用默认配置)
 
-      setApiKey: (key) => set({
-        apiKey: key,
-        isConfigured: key.trim().length > 0
-      }),
+      setApiKey: (key) => {
+        const trimmedKey = key.trim();
+        set({
+          apiKey: trimmedKey,
+          isUsingDefault: trimmedKey.length === 0,
+          isConfigured: true,  // 无论有没有 Key 都算已配置
+          // 如果清空 Key,强制使用 Flash 模型
+          model: trimmedKey.length === 0 ? 'gemini-2.5-flash' : undefined as any,
+        });
+      },
 
       setModel: (model) => set({ model }),
 
       clearSettings: () => set({
         apiKey: '',
         model: 'gemini-2.5-flash',
-        isConfigured: false
+        isUsingDefault: true,
+        isConfigured: true,  // 清除后仍然算已配置(使用默认)
       }),
     }),
     {
@@ -49,6 +60,7 @@ export const useSettingsStore = create<SettingsState>()(
       partialize: (state) => ({
         apiKey: state.apiKey,
         model: state.model,
+        isUsingDefault: state.isUsingDefault,
         isConfigured: state.isConfigured,
       }),
     }

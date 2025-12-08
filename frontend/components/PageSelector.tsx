@@ -97,11 +97,8 @@ export default function PageSelector() {
       return;
     }
 
-    // 检查是否配置了 API Key
-    if (!isConfigured) {
-      setError('请先配置 API Key（点击右上角设置按钮）');
-      return;
-    }
+    // 注意:不再强制要求配置,允许使用默认配置
+    // 如果没有 API Key,后端会使用默认的
 
     setIsStarting(true);
     setError(null);
@@ -109,12 +106,20 @@ export default function PageSelector() {
     try {
       // 立即更新状态为 processing，防止重复点击
       setProgress('processing', 0, 0);
-      // 传递 LLM 配置
-      await startProcessing(pdfId, selectedPages, {
-        api_key: apiKey,
-        model: model,
-      });
-      console.log('✅ 开始处理选定页码:', selectedPages, '使用模型:', model);
+      
+      // 传递 LLM 配置(如果有的话)
+      // apiKey 为空时,传递 undefined,后端会使用默认配置
+      const llmConfig = apiKey.trim() 
+        ? { api_key: apiKey, model: model }
+        : undefined;
+      
+      await startProcessing(pdfId, selectedPages, llmConfig);
+      
+      if (llmConfig) {
+        console.log('✅ 开始处理选定页码:', selectedPages, '使用用户API Key,模型:', model);
+      } else {
+        console.log('✅ 开始处理选定页码:', selectedPages, '使用默认配置');
+      }
     } catch (error: any) {
       console.error('❌ 启动处理失败:', error);
       const errorMessage = error.response?.data?.detail || '启动处理失败';
