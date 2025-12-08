@@ -20,6 +20,7 @@ export default function PdfViewer() {
   const [pageWidth, setPageWidth] = useState<number | undefined>(undefined);
   const [pageHeight, setPageHeight] = useState<number | undefined>(undefined);
   const [inputPage, setInputPage] = useState<string>(String(currentPage));
+  const [scale, setScale] = useState<number>(1.0); // 缩放比例
   const inputRef = useRef<HTMLInputElement>(null);
 
   // 同步 inputPage 与 currentPage
@@ -47,12 +48,12 @@ export default function PdfViewer() {
         const availableHeight = containerHeight - padding * 2;
 
         if (widthBasedHeight <= availableHeight) {
-          // 宽度受限，使用宽度来缩放
-          setPageWidth(availableWidth);
+          // 宽度受限，使用宽度来缩放（应用用户设置的缩放比例）
+          setPageWidth(availableWidth * scale);
           setPageHeight(undefined);
         } else {
-          // 高度受限，使用高度来缩放
-          setPageHeight(availableHeight);
+          // 高度受限，使用高度来缩放（应用用户设置的缩放比例）
+          setPageHeight(availableHeight * scale);
           setPageWidth(undefined);
         }
       }
@@ -61,7 +62,7 @@ export default function PdfViewer() {
     updateSize();
     window.addEventListener('resize', updateSize);
     return () => window.removeEventListener('resize', updateSize);
-  }, []);
+  }, [scale]); // 添加 scale 作为依赖
 
   const onDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {
     setNumPages(numPages);
@@ -77,6 +78,19 @@ export default function PdfViewer() {
     if (currentPage < totalPages) {
       setCurrentPage(currentPage + 1);
     }
+  };
+
+  // 缩放控制
+  const zoomIn = () => {
+    setScale(prev => Math.min(prev + 0.1, 2.0)); // 最大 200%
+  };
+
+  const zoomOut = () => {
+    setScale(prev => Math.max(prev - 0.1, 0.5)); // 最小 50%
+  };
+
+  const resetZoom = () => {
+    setScale(1.0);
   };
 
   // 页码跳转
@@ -139,6 +153,36 @@ export default function PdfViewer() {
             className="px-3 py-1.5 text-sm border border-gray-300 disabled:border-gray-200 disabled:text-gray-400 hover:bg-gray-50 hover:border-gray-400 transition-all shadow-sm disabled:shadow-none font-medium rounded"
           >
             下一页
+          </button>
+        </div>
+
+        {/* 缩放控制 */}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={zoomOut}
+            disabled={scale <= 0.5}
+            className="px-2 py-1.5 text-sm border border-gray-300 disabled:border-gray-200 disabled:text-gray-400 hover:bg-gray-50 hover:border-gray-400 transition-all shadow-sm disabled:shadow-none font-medium rounded"
+            title="缩小 (最小 50%)"
+          >
+            🔍-
+          </button>
+          <span className="text-sm text-gray-700 font-medium min-w-[3rem] text-center">
+            {Math.round(scale * 100)}%
+          </span>
+          <button
+            onClick={zoomIn}
+            disabled={scale >= 2.0}
+            className="px-2 py-1.5 text-sm border border-gray-300 disabled:border-gray-200 disabled:text-gray-400 hover:bg-gray-50 hover:border-gray-400 transition-all shadow-sm disabled:shadow-none font-medium rounded"
+            title="放大 (最大 200%)"
+          >
+            🔍+
+          </button>
+          <button
+            onClick={resetZoom}
+            className="px-2 py-1.5 text-sm border border-gray-300 hover:bg-gray-50 hover:border-gray-400 transition-all shadow-sm font-medium rounded"
+            title="重置为 100%"
+          >
+            重置
           </button>
         </div>
       </div>
