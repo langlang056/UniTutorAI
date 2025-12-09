@@ -85,16 +85,19 @@ async def process_pdf_background(
     print(f"🚀 开始后台处理 PDF: {pdf_id}, 处理 {total_pages_to_process} 页: {page_numbers}")
 
     # 创建 LLM 服务实例
+    current_model_name = "unknown"  # 用于日志记录
     if llm_config and llm_config.get("api_key"):
+        current_model_name = llm_config.get("model", "gemini-2.5-flash")
         current_llm = create_llm_service(
             api_key=llm_config["api_key"],
-            model=llm_config.get("model", "gemini-2.5-flash")
+            model=current_model_name
         )
-        print(f"  📡 使用客户端 API Key，模型: {llm_config.get('model', 'gemini-2.5-flash')}")
+        print(f"  📡 使用客户端 API Key，模型: {current_model_name}")
     else:
         # 向后兼容：使用全局配置
         current_llm = llm_service
-        print(f"  📡 使用服务器默认配置")
+        current_model_name = settings.google_model
+        print(f"  📡 使用服务器默认配置，模型: {current_model_name}")
 
     try:
         async with AsyncSessionLocal() as db:
@@ -126,7 +129,7 @@ async def process_pdf_background(
                     )
 
                 # 调用 LLM 生成解释
-                print(f"  🤖 调用 LLM 分析...")
+                print(f"  🤖 正在由 {current_model_name} 模型分析第 {page_number} 页...")
                 markdown_content = await current_llm.analyze_image(
                     image=page_image,
                     page_num=page_number,

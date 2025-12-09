@@ -250,12 +250,12 @@ export default function ChatBubble() {
 
       {/* 聊天面板 */}
       <div
-        className={`fixed bottom-24 right-6 w-96 bg-white rounded-xl shadow-2xl transition-all duration-300 z-40 flex flex-col overflow-hidden ${
+        className={`fixed bottom-24 right-6 w-[480px] bg-white rounded-xl shadow-2xl transition-all duration-300 z-40 flex flex-col overflow-hidden ${
           isOpen
             ? 'opacity-100 translate-y-0 pointer-events-auto'
             : 'opacity-0 translate-y-4 pointer-events-none'
         }`}
-        style={{ height: '500px' }}
+        style={{ height: '600px' }}
       >
         {/* 头部 */}
         <div className="px-4 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white flex-shrink-0">
@@ -356,34 +356,64 @@ function MessageBubble({ message }: { message: ChatMessage }) {
         {isUser ? (
           <p className="text-sm whitespace-pre-wrap">{message.content}</p>
         ) : (
-          <div className="prose prose-sm max-w-none">
+          <div className="max-w-none text-[13px]">
             {message.content ? (
               <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
                 components={{
                   p: ({ children }) => (
-                    <p className="text-sm text-gray-800 mb-2 last:mb-0">
+                    <p className="text-gray-800 mb-2 last:mb-0 leading-relaxed">
                       {children}
                     </p>
                   ),
                   ul: ({ children }) => (
-                    <ul className="list-disc list-inside text-sm text-gray-800 mb-2">
+                    <ul className="list-disc list-inside text-gray-800 mb-2 space-y-1">
                       {children}
                     </ul>
                   ),
                   ol: ({ children }) => (
-                    <ol className="list-decimal list-inside text-sm text-gray-800 mb-2">
+                    <ol className="list-decimal list-inside text-gray-800 mb-2 space-y-1">
                       {children}
                     </ol>
+                  ),
+                  li: ({ children }) => (
+                    <li className="text-gray-800">
+                      {children}
+                    </li>
+                  ),
+                  strong: ({ children }) => (
+                    <strong className="font-semibold text-gray-900">
+                      {children}
+                    </strong>
+                  ),
+                  em: ({ children }) => (
+                    <em className="italic">
+                      {children}
+                    </em>
+                  ),
+                  h1: ({ children }) => (
+                    <h1 className="text-base font-bold text-gray-900 mb-2 mt-3">
+                      {children}
+                    </h1>
+                  ),
+                  h2: ({ children }) => (
+                    <h2 className="text-[14px] font-bold text-gray-900 mb-2 mt-2">
+                      {children}
+                    </h2>
+                  ),
+                  h3: ({ children }) => (
+                    <h3 className="text-[13px] font-semibold text-gray-900 mb-1 mt-2">
+                      {children}
+                    </h3>
                   ),
                   code: ({ children, className }) => {
                     const isInline = !className;
                     return isInline ? (
-                      <code className="bg-gray-100 px-1 rounded text-sm">
+                      <code className="bg-blue-50 text-blue-800 px-1.5 py-0.5 rounded font-mono text-[12px]">
                         {children}
                       </code>
                     ) : (
-                      <code className="block bg-gray-100 p-2 rounded text-sm overflow-x-auto">
+                      <code className="block bg-gray-50 text-gray-800 p-3 rounded overflow-x-auto font-mono text-[12px] border border-gray-200">
                         {children}
                       </code>
                     );
