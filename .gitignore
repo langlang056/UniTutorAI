@@ -15,6 +15,9 @@ build/
 .env
 .env.local
 
+# PM2 config (contains server-specific paths)
+ecosystem.config.js
+
 # Database
 *.db
 *.sqlite

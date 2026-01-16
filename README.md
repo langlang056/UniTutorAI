@@ -1,442 +1,220 @@
 # PPT Helper - 智能课件讲解助手
+在线使用网址(需自备gemini apikey)：https://unitutorai.com/
 
 基于 Gemini Vision 的 PDF 课件智能解析系统，将复杂的学术内容转化为通俗易懂的中文解释。
 
-## 🎯 核心功能
+## 功能特点
 
-- **图像理解**: 使用 PyMuPDF 将 PDF 转为高清图像，通过 Gemini Vision 分析
-- **智能解释**: AI 自动识别 PPT 中的文字、图表、公式，生成中文讲解
-- **分屏查看**: 左侧原始 PDF，右侧 AI 解释，实时同步
-- **按页缓存**: 前端状态管理，翻页流畅不丢失内容
+- 使用 PyMuPDF 将 PDF 转为高清图像，通过 Gemini Vision 分析
+- AI 自动识别 PPT 中的文字、图表、公式，生成中文讲解
+- 左侧原始 PDF，右侧 AI 解释，实时同步
+- 支持 LaTeX 公式渲染
+- AI 追问助手，可针对当前页面内容进行追问
 
-## 🚀 快速开始
+## 环境要求
 
-### 环境要求
-
-- Python 3.11+ (推荐使用 conda)
+- Python 3.11+
 - Node.js 18+
-- Google Gemini API Key ([免费获取](https://aistudio.google.com/apikey))
+- Google Gemini API Key (https://aistudio.google.com/apikey)
 
-### 一、后端安装
+## 本地开发
+
+### 后端
 
 ```bash
-# 1. 创建 conda 环境
-conda create -n ppt_helper python=3.11
-conda activate ppt_helper
-
-# 2. 安装依赖
 cd backend
+python -m venv venv
+source venv/bin/activate  # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 
-# 3. 配置环境变量
 cp .env.example .env
-# 编辑 .env，填入你的 GOOGLE_API_KEY
+# 编辑 .env，填入 GOOGLE_API_KEY
+
+uvicorn app.main:app --reload
 ```
 
-### 二、前端安装
+### 前端
 
 ```bash
 cd frontend
 npm install
-```
-
-### 三、启动服务
-
-**方式1: 使用启动脚本（推荐）**
-
-```bash
-# Windows - 根目录运行
-start_all.bat
-
-# Linux/Mac - 根目录运行
-chmod +x start_all.sh
-./start_all.sh
-```
-
-**方式2: 手动启动**
-
-```bash
-# 终端1 - 启动后端
-conda activate ppt_helper
-cd backend
-python -m uvicorn app.main:app --reload
-
-# 终端2 - 启动前端
-cd frontend
 npm run dev
 ```
 
-### 四、使用
+访问 http://localhost:3000
 
-1. 打开浏览器访问: `http://localhost:3000`
-2. 上传 PDF 课件
-3. 左侧查看原始 PDF，右侧查看 AI 解释
-4. 点击翻页按钮或使用快捷键浏览
+## 服务器部署
 
-## 📦 技术栈
+以下以 Ubuntu + Miniconda + Nginx + PM2 为例。
 
-### 后端
-- **框架**: FastAPI
-- **PDF处理**: PyMuPDF (fitz) - 高质量图像渲染
-- **AI模型**: Google Gemini 2.5 Flash (Vision)
-- **数据库**: SQLite (开发环境)
-- **缓存**: 禁用（便于调试，生产环境可启用）
+### 1. 安装 Miniconda
 
-### 前端
-- **框架**: Next.js 14 (App Router)
-- **PDF查看**: react-pdf
-- **状态管理**: Zustand (按页面跟踪加载状态)
-- **样式**: Tailwind CSS (简洁黑白风格)
+```bash
+wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O /tmp/miniconda.sh
+bash /tmp/miniconda.sh -b -p $HOME/miniconda3
+$HOME/miniconda3/bin/conda init bash
+source ~/.bashrc
+```
 
-## 🏗️ 项目结构
+### 2. 安装 Node.js
+
+```bash
+cd /tmp
+curl -fsSL https://nodejs.org/dist/v20.11.0/node-v20.11.0-linux-x64.tar.xz -o node.tar.xz
+tar -xf node.tar.xz
+sudo cp -r node-v20.11.0-linux-x64/{bin,lib,share} /usr/local/
+```
+
+### 3. 配置后端
+
+```bash
+conda create -n ppt_helper python=3.11 -y
+conda activate ppt_helper
+
+cd /path/to/ppt_helper/backend
+pip install -r requirements.txt
+
+cp .env.example .env
+# 编辑 .env，填入 GOOGLE_API_KEY
+```
+
+### 4. 配置前端
+
+```bash
+cd /path/to/ppt_helper/frontend
+npm install
+
+# 如果使用 Nginx 反向代理，创建 .env.local
+echo "NEXT_PUBLIC_API_URL=/api" > .env.local
+```
+
+### 5. 配置 Nginx
+
+安装 Nginx：
+
+```bash
+sudo apt install -y nginx
+```
+
+创建配置文件 `/etc/nginx/sites-available/ppt-helper`：
+
+```nginx
+server {
+    listen 80;
+    server_name your-domain.com;
+
+    location / {
+        proxy_pass http://localhost:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+    }
+
+    location /api/ {
+        proxy_pass http://localhost:8000/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+
+    client_max_body_size 100M;
+}
+```
+
+启用配置：
+
+```bash
+sudo ln -sf /etc/nginx/sites-available/ppt-helper /etc/nginx/sites-enabled/
+sudo rm -f /etc/nginx/sites-enabled/default
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+### 6. 使用 PM2 管理进程
+
+安装 PM2：
+
+```bash
+npm install -g pm2
+```
+
+创建配置文件 `ecosystem.config.js`（参考 `ecosystem.config.example.js`）：
+
+```javascript
+module.exports = {
+  apps: [
+    {
+      name: 'ppt-backend',
+      cwd: '/path/to/ppt_helper/backend',
+      script: '/path/to/miniconda3/envs/ppt_helper/bin/uvicorn',
+      args: 'app.main:app --host 127.0.0.1 --port 8000',
+      interpreter: 'none',
+      autorestart: true
+    },
+    {
+      name: 'ppt-frontend',
+      cwd: '/path/to/ppt_helper/frontend',
+      script: 'npm',
+      args: 'run dev',
+      autorestart: true
+    }
+  ]
+};
+```
+
+启动服务：
+
+```bash
+pm2 start ecosystem.config.js
+pm2 save
+pm2 startup  # 配置开机自启
+```
+
+### 7. 防火墙配置
+
+```bash
+sudo ufw allow 80/tcp
+sudo ufw allow 443/tcp
+```
+
+### PM2 常用命令
+
+| 命令 | 说明 |
+|------|------|
+| `pm2 status` | 查看服务状态 |
+| `pm2 logs` | 查看日志 |
+| `pm2 restart all` | 重启所有服务 |
+| `pm2 stop all` | 停止所有服务 |
+
+## 技术栈
+
+**后端**: FastAPI, PyMuPDF, Google Gemini API, SQLite
+
+**前端**: Next.js 14, react-pdf, Zustand, Tailwind CSS
+
+## 项目结构
 
 ```
 ppt_helper/
 ├── backend/
 │   ├── app/
-│   │   ├── main.py              # FastAPI 主路由
-│   │   ├── config.py            # 配置管理
-│   │   ├── models/
-│   │   │   ├── database.py      # 数据库模型
-│   │   │   └── schemas.py       # API 数据结构
-│   │   └── services/
-│   │       ├── pdf_parser.py    # PDF -> 图像
-│   │       ├── cache_service.py # 缓存服务
-│   │       └── llm_service.py   # Gemini Vision
-│   ├── uploads/                 # PDF 存储
-│   ├── data/                    # SQLite 数据库
+│   │   ├── main.py           # FastAPI 主路由
+│   │   ├── config.py         # 配置管理
+│   │   ├── models/           # 数据库模型
+│   │   └── services/         # PDF解析、LLM服务
 │   ├── requirements.txt
-│   └── .env
-│
+│   └── .env.example
 ├── frontend/
-│   ├── app/
-│   │   ├── page.tsx            # 主页面
-│   │   └── layout.tsx          # 布局
-│   ├── components/
-│   │   ├── PdfUploader.tsx     # PDF 上传
-│   │   ├── PdfViewer.tsx       # PDF 显示
-│   │   ├── ExplanationPanel.tsx # 解释面板
-│   │   ├── PageSelector.tsx    # 页码选择器
-│   │   ├── SettingsModal.tsx   # 设置弹窗 (API Key)
-│   │   └── ChatBubble.tsx      # AI 追问悬浮球
-│   ├── store/
-│   │   ├── pdfStore.ts         # PDF 状态管理
-│   │   ├── settingsStore.ts    # 设置状态管理
-│   │   └── chatStore.ts        # 聊天状态管理
-│   ├── lib/
-│   │   ├── api.ts              # API 调用
-│   │   └── polyfills.ts        # 兼容性补丁
+│   ├── app/                  # Next.js 页面
+│   ├── components/           # React 组件
+│   ├── store/                # Zustand 状态管理
+│   ├── lib/                  # API 调用
 │   └── package.json
-│
-├── start_all.bat               # Windows 启动脚本
-├── start_all.sh                # Linux/Mac 启动脚本
+├── ecosystem.config.example.js  # PM2 配置模板
 └── README.md
 ```
 
-## 🔧 核心实现
-
-### 1. PDF 图像提取
-
-使用 PyMuPDF 将 PDF 页面渲染为 150 DPI 图像，确保文字、图表、公式清晰可见：
-
-```python
-# backend/app/services/pdf_parser.py
-import fitz  # PyMuPDF
-from PIL import Image
-
-def extract_page_as_image(pdf_path, page_num):
-    doc = fitz.open(pdf_path)
-    page = doc[page_num - 1]
-    zoom = 150 / 72  # 150 DPI
-    mat = fitz.Matrix(zoom, zoom)
-    pix = page.get_pixmap(matrix=mat, alpha=False)
-    return Image.open(io.BytesIO(pix.tobytes("png")))
-```
-
-### 2. Gemini Vision 分析
-
-将图像发送给 Gemini 2.5 Flash，自动识别并解释内容：
-
-```python
-# backend/app/services/llm_service.py
-async def analyze_image(image, prompt):
-    response = model.generate_content(
-        [prompt, image],
-        safety_settings=[{"category": cat, "threshold": "BLOCK_NONE"}]
-    )
-    return response.text
-```
-
-### 3. 按页状态管理
-
-前端使用 Zustand + Set/Map 实现按页面独立跟踪加载状态：
-
-```typescript
-// frontend/store/pdfStore.ts
-interface PdfState {
-  explanations: Map<number, PageExplanation>;  // 缓存解释
-  loadingPages: Set<number>;                   // 加载中的页面
-  pageErrors: Map<number, string>;             // 各页面错误
-}
-```
-
-### 4. JSON 修复机制
-
-处理 Gemini 输出被截断的情况，自动补全括号：
-
-```python
-# backend/app/main.py
-if response_text.count('"') % 2 != 0:
-    response_text += '"'
-response_text += "}" * (response_text.count("{") - response_text.count("}"))
-response_text += "]" * (response_text.count("[") - response_text.count("]"))
-```
-
-## 🔍 API 接口
-
-### 上传 PDF
-```bash
-POST /api/upload
-Content-Type: multipart/form-data
-
-Response:
-{
-  "pdf_id": "947eef32ae452ad2",
-  "total_pages": 12,
-  "filename": "lecture.pdf"
-}
-```
-
-### 获取页面解释
-```bash
-GET /api/explain/{pdf_id}/{page_number}
-
-Response:
-{
-  "page_number": 1,
-  "markdown_content": "## 主题概述\n...",
-  "summary": "页面摘要"
-}
-```
-
-### 启动页面处理
-```bash
-POST /api/process/{pdf_id}
-Content-Type: application/json
-
-Request:
-{
-  "page_numbers": [1, 2, 3],
-  "llm_config": {
-    "api_key": "your-google-api-key",
-    "model": "gemini-2.5-flash"
-  }
-}
-
-Response:
-{
-  "message": "已启动处理 3 页",
-  "page_numbers": [1, 2, 3],
-  "model": "gemini-2.5-flash"
-}
-```
-
-### AI 聊天 (流式响应)
-```bash
-POST /api/chat/{pdf_id}
-Content-Type: application/json
-
-Request:
-{
-  "question": "这个公式是什么意思？",
-  "page_number": 1,
-  "context": "当前页面的解释内容",
-  "history": [
-    {"role": "user", "content": "之前的问题"},
-    {"role": "assistant", "content": "之前的回答"}
-  ],
-  "llm_config": {
-    "api_key": "your-google-api-key",
-    "model": "gemini-2.5-flash"
-  }
-}
-
-Response: SSE 流式响应
-data: {"content": "这个公式"}
-data: {"content": "表示的是..."}
-data: [DONE]
-```
-
-## 🐛 版本历史与Bug修复
-
-### v0.5.1 (2025-12-08)
-
-**新功能**:
-- ✅ **LaTeX 公式渲染**: 支持数学公式美观显示，行内公式 `$...$` 和块级公式 `$$...$$` 均可正确渲染
-
-**技术实现**:
-- 🔧 集成 KaTeX 渲染引擎 (remark-math + rehype-katex)
-- 🔧 公式渲染速度快、显示美观
-
-### v0.5.0 (2025-12-07)
-
-**新功能**:
-- ✅ **AI 追问助手**: 新增悬浮球聊天功能，可针对当前页面内容进行追问
-- ✅ **流式响应**: 聊天采用 SSE 流式输出，打字机效果实时显示
-- ✅ **上下文感知**: 自动将当前页面解释作为上下文，提升回答质量
-- ✅ **独立会话**: 聊天功能与页面解析完全独立，互不影响
-
-**改进**:
-- 🔧 聊天历史切换页面时自动清空，保持上下文相关性
-- 🔧 优化悬浮球 UI，展开/收起动画流畅
-
-### v0.4.0 (2025-12-06)
-
-**新功能**:
-- ✅ **客户端 API Key 配置**: 用户可在前端配置自己的 Google API Key
-- ✅ **模型选择**: 支持选择 `gemini-2.5-flash` 或 `gemini-2.5-pro`
-- ✅ **选择性页面处理**: 可选择特定页码进行分析，无需处理整个 PDF
-- ✅ **两步确认流程**: "确认页码" → "开始分析"，避免误操作
-
-**改进**:
-- 🔧 修复轮询风暴问题（useEffect 依赖 Map/Set 导致无限循环）
-- 🔧 修复页面内容自动刷新问题
-- 🔧 优化进度显示，正确显示选定页数而非总页数
-- 🔧 添加轮询次数限制，防止无限轮询
-
-**Bug修复**:
-- 🐛 修复"该 PDF 正在处理中"错误提示显示问题
-- 🐛 修复切换页面后仍轮询旧页面的问题
-
-### v0.3.0 (2025-12-05)
-
-**重大更新**:
-- ✅ 改用 PyMuPDF 图像提取 + Gemini Vision (替代纯文本)
-- ✅ 完全禁用安全过滤器，学术内容不再被误判
-- ✅ 前端按页面跟踪状态，翻页不丢失已加载内容
-- ✅ JSON 自动修复机制，处理输出截断问题
-- ✅ 增加 max_tokens 到 4000，简化 prompt 减少消耗
-- ✅ 禁用缓存（开发环境），便于调试
-
-**Bug修复**:
-- 🐛 修复 Gemini finish_reason=2 安全阻止问题
-- 🐛 修复 PPT 图表、公式无法识别的问题
-- 🐛 修复前端翻页时 isLoadingExplanation 全局状态导致已加载内容消失
-- 🐛 修复 JSON 被截断导致解析失败（Unterminated string）
-
-### v0.2.0 (2025-12-04)
-
-**新功能**:
-- ✅ 前端黑白简洁设计
-- ✅ 左右分屏布局
-- ✅ react-pdf 集成
-- ✅ Zustand 状态管理
-
-### v0.1.0 (2025-12-03)
-
-**初始版本**:
-- ✅ FastAPI 后端
-- ✅ 仅支持 Gemini API
-- ✅ PyPDF2 文本提取
-- ✅ SQLite 缓存
-
-## ⚙️ 配置说明
-
-### 环境变量 (.env)
-
-```env
-# Google Gemini API Key (必需)
-GOOGLE_API_KEY=your-api-key-here
-
-# Gemini 模型配置
-GOOGLE_MODEL=gemini-2.5-flash
-TEMPERATURE=0.7
-MAX_TOKENS=4000
-
-# 服务器配置
-HOST=0.0.0.0
-PORT=8000
-```
-
-### 性能调优
-
-**DPI 设置**: 默认 150，可在 `backend/app/services/pdf_parser.py` 调整
-- 更低 DPI (100): 更快，文件小，适合文字为主的 PPT
-- 更高 DPI (200): 更清晰，适合含大量图表的 PPT
-
-**Token 限制**: 默认 4000，可在 `backend/app/main.py` 调整
-- 简单页面: 2000 足够
-- 复杂页面: 4000-8000
-
-## 🔍 故障排除
-
-### 后端报错: "GOOGLE_API_KEY 未配置"
-**解决**: 检查 `.env` 文件是否存在，且包含有效的 API Key
-
-### 前端显示 "加载失败"
-**解决**:
-1. 查看浏览器控制台错误
-2. 检查后端是否运行 (`http://localhost:8000/docs`)
-3. 查看后端终端日志
-
-### PDF 上传后无响应
-**解决**:
-1. 检查 PDF 文件大小 (< 50MB)
-2. 确认 PDF 无密码保护
-3. 查看后端日志是否有 PyMuPDF 错误
-
-### Gemini 返回 "此页面内容因安全原因无法生成解释"
-**解决**:
-- 该问题已在 v0.3.0 修复
-- 如仍出现，检查 `llm_service.py` 的 safety_settings 配置
-
-### JSON 解析失败
-**解决**:
-- v0.3.0 已添加自动修复机制
-- 如频繁出现，尝试增加 max_tokens 或简化 prompt
-
-## 💰 成本估算
-
-**使用 Gemini 2.5 Flash**:
-- PDF 解析: 本地 PyMuPDF (免费)
-- AI 分析: Gemini 2.5 Flash 测试期免费
-- **总成本**: $0/月 (测试期)
-
-**生产环境** (Gemini API 收费后):
-- 假设: 10 个用户 × 5 份 PDF × 50 页 = 2500 页/月
-- 成本: ~$5-10/月 (根据 Gemini 定价)
-
-## 🧹 项目清理
-
-### 清理空目录和缓存
-
-项目包含一些空目录和临时文件，可以安全删除：
-
-```bash
-# Windows
-cleanup.bat
-
-# Linux/Mac
-chmod +x cleanup.sh
-./cleanup.sh
-```
-
-清理内容：
-- ✅ 删除空目录（`backend/app/agents`, `backend/examples`）
-- ✅ 清理临时 PDF 文件
-- ✅ 删除 Python 缓存（`__pycache__`）
-- ⚠️ 可选：清理数据库缓存（会提示确认）
-
-详细说明见 [CLEANUP_GUIDE.md](CLEANUP_GUIDE.md)
-
-## 🤝 贡献与支持
-
-这是一个个人学习项目，欢迎提出建议和问题！
-
-## 📄 许可
+## 许可
 
 仅供个人学习使用。
-
----
-
-**使用 Claude Code 构建** 🤖
