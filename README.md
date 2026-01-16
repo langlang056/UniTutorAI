@@ -1,4 +1,4 @@
-# PPT Helper - 智能课件讲解助手
+# UniTutor AI - 智能课件讲解助手
 在线使用网址(需自备gemini apikey)：https://unitutorai.com/
 
 基于 Gemini Vision 的 PDF 课件智能解析系统，将复杂的学术内容转化为通俗易懂的中文解释。
